@@ -1,0 +1,80 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: demo
+spec:
+  secretName: demo-tls
+  issuerRef:
+    kind: ClusterIssuer
+    name: cloud-dns-issuer
+  dnsNames:
+  - YOUR_DOMAIN_HERE
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: cloud-dns-issuer
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: cloud-dns-issuer-key
+    solvers:
+    - dns01:
+        cloudDNS:
+          project: YOUR_PROJECT_HERE
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+spec:
+  tls:
+  - hosts:
+    - YOUR_DOMAIN_HERE
+    secretName: demo-tls
+  rules:
+  - host: YOUR_DOMAIN_HERE
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
